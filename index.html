@@ -1,134 +1,236 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MindGuard AI | Student Mental Health Prediction</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="Style.css">
-</head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mental Health Signal — Student Wellness Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="Style.css" />
+</head>S
 <body>
-<nav class="navbar navbar-expand-lg sticky-top app-nav">
-  <div class="container">
-    <a class="navbar-brand logo" href="#home"><i class="fa-solid fa-brain"></i><span>MindGuard AI<small>Student Mental Health Prediction</small></span></a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu" aria-controls="navMenu" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
-    <div class="collapse navbar-collapse" id="navMenu">
-      <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-3">
-        <li class="nav-item"><a class="nav-link" href="#home">Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="#predict">Prediction</a></li>
-        <li class="nav-item"><a class="nav-link" href="#about">About AI</a></li>
-        <li class="nav-item"><span class="status"><i class="dot"></i>AI Model Online</span></li>
-      </ul>
-    </div>
+
+<div class="noise-overlay" aria-hidden="true"></div>
+
+<header class="site-header">
+  <div class="header-inner">
+    <span class="eyebrow">Student Wellness Analytics</span>
+    <h1 class="title">Mental Health <em>Signal</em></h1>
+    <p class="subtitle">A quick read on how habits, screen time, and stress are trending — modeled from your daily rhythm, not a diagnosis.</p>
   </div>
-</nav>
+</header>
 
-<main id="home">
-  <section class="container hero">
-    <div class="row align-items-center g-4">
-      <div class="col-lg-7">
-        <h1>AI-Powered Student Mental Health Prediction</h1>
-        <p class="lead">Understand how lifestyle, academic habits, social media usage and stress levels may influence a student's mental health score.</p>
-        <button id="startBtn" class="btn btn-grad btn-lg">Start Prediction <i class="fa-solid fa-arrow-down ms-1"></i></button>
-      </div>
-      <div class="col-lg-5">
-        <div class="hero-art" aria-hidden="true">
-          <div class="orb"><i class="fa-solid fa-brain"></i></div>
-          <i class="fa-solid fa-moon float f1"></i><i class="fa-solid fa-mobile-screen float f2"></i>
-          <i class="fa-solid fa-book-open float f3"></i><i class="fa-solid fa-person-running float f4"></i>
+<main class="layout">
+
+  <!-- FORM PANEL -->
+  <section class="panel form-panel" aria-labelledby="form-heading">
+    <form id="predict-form" novalidate>
+
+      <fieldset class="group">
+        <legend><span class="legend-index">01</span> Profile</legend>
+        <div class="grid grid-3">
+          <div class="field">
+            <label for="age">Age</label>
+            <input type="number" id="age" name="age" min="10" max="100" step="1" required placeholder="e.g. 21" />
+            <span class="hint">10–100</span>
+            <span class="error-msg" data-for="age"></span>
+          </div>
+          <div class="field">
+            <label for="gender">Gender</label>
+            <select id="gender" name="gender" required>
+              <option value="" disabled selected hidden>Select</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+            <span class="error-msg" data-for="gender"></span>
+          </div>
+          <div class="field">
+            <label for="country">Country</label>
+            <input type="text" id="country" name="country" list="country-list" required placeholder="e.g. India" autocomplete="off" />
+            <datalist id="country-list">
+              <option value="India"></option>
+              <option value="USA"></option>
+              <option value="Canada"></option>
+              <option value="Australia"></option>
+              <option value="UK"></option>
+              <option value="Germany"></option>
+              <option value="Mexico"></option>
+              <option value="Turkey"></option>
+              <option value="France"></option>
+            </datalist>
+            <span class="hint">Not listed? Type it anyway.</span>
+            <span class="error-msg" data-for="country"></span>
+          </div>
         </div>
-      </div>
-    </div>
-  </section>
+      </fieldset>
 
-  <section class="container">
-    <div class="row g-3">
-      <div class="col-6 col-lg-3"><div class="glass tile h-100"><i class="fa-solid fa-sliders"></i><h3>12+</h3><p>Input Factors</p></div></div>
-      <div class="col-6 col-lg-3"><div class="glass tile h-100"><i class="fa-solid fa-microchip"></i><h3>AI-Based</h3><p>Prediction</p></div></div>
-      <div class="col-6 col-lg-3"><div class="glass tile h-100"><i class="fa-solid fa-bolt"></i><h3>Real-Time</h3><p>Result</p></div></div>
-      <div class="col-6 col-lg-3"><div class="glass tile h-100"><i class="fa-solid fa-server"></i><h3>FastAPI</h3><p>Powered</p></div></div>
-    </div>
-  </section>
-
-  <section id="predict" class="container section">
-    <div class="glass panel mx-auto">
-      <h2>Student Information</h2>
-      <p class="sub">Enter the student's details to generate an AI-based mental health prediction.</p>
-      <form id="predictForm" novalidate>
-        <div class="row g-3">
-          <div class="col-md-6"><label for="age" class="form-label">Age</label><div class="input-group"><span class="input-group-text"><i class="fa-solid fa-cake-candles"></i></span><input id="age" type="number" class="form-control" min="10" max="100" step="1" placeholder="e.g. 20" required></div><span class="err" id="ageError"></span></div>
-          <div class="col-md-6"><label for="gender" class="form-label">Gender</label><div class="input-group"><span class="input-group-text"><i class="fa-solid fa-venus-mars"></i></span><select id="gender" class="form-select"><option>Male</option><option>Female</option></select></div><span class="err" id="genderError"></span></div>
-          <div class="col-md-6"><label for="country" class="form-label">Country</label><div class="input-group"><span class="input-group-text"><i class="fa-solid fa-earth-asia"></i></span><!-- Names for the top countries match the backend list; any other value is grouped as "Other" by FastAPI -->
-            <select id="country" class="form-select" required><option value="" selected disabled>Select a country</option>
-              <optgroup label="Most common"><option value="India">India</option><option value="USA">USA</option><option value="UK">UK</option><option value="Canada">Canada</option><option value="Australia">Australia</option><option value="Germany">Germany</option><option value="France">France</option><option value="Mexico">Mexico</option><option value="Turkey">Turkey</option></optgroup>
-              <optgroup label="More countries"><option value="Argentina">Argentina</option><option value="Bangladesh">Bangladesh</option><option value="Brazil">Brazil</option><option value="China">China</option><option value="Egypt">Egypt</option><option value="Indonesia">Indonesia</option><option value="Italy">Italy</option><option value="Japan">Japan</option><option value="Kenya">Kenya</option><option value="Malaysia">Malaysia</option><option value="Nepal">Nepal</option><option value="Netherlands">Netherlands</option><option value="Nigeria">Nigeria</option><option value="Pakistan">Pakistan</option><option value="Philippines">Philippines</option><option value="Russia">Russia</option><option value="Saudi Arabia">Saudi Arabia</option><option value="Singapore">Singapore</option><option value="South Africa">South Africa</option><option value="South Korea">South Korea</option><option value="Spain">Spain</option><option value="Sri Lanka">Sri Lanka</option><option value="Sweden">Sweden</option><option value="Thailand">Thailand</option><option value="UAE">UAE</option><option value="Vietnam">Vietnam</option><option value="Other">Other</option></optgroup>
-            </select></div><span class="err" id="countryError"></span></div>
-          <div class="col-md-6"><label for="academicLevel" class="form-label">Academic Level</label><div class="input-group"><span class="input-group-text"><i class="fa-solid fa-graduation-cap"></i></span><select id="academicLevel" class="form-select"><option>Undergraduate</option><option>Graduate</option><option>High School</option></select></div><span class="err" id="academicLevelError"></span></div>
-          <div class="col-md-6"><label for="platform" class="form-label">Most Used Platform</label><div class="input-group"><span class="input-group-text"><i class="fa-solid fa-share-nodes"></i></span><!-- value must match the FastAPI Literal exactly -->
-            <select id="platform" class="form-select">
-              <option value="Facebook">Facebook</option><option value="LinkedIn">LinkedIn</option><option value="Instagram">Instagram</option>
-              <option value="Snapchat">Snapchat</option><option value="Twitter">Twitter</option><option value="YouTube">YouTube</option>
-              <option value="TikTok">TikTok</option><option value="LINE">LINE</option><option value="KakaoTalk">KakaoTalk</option>
-              <option value="Vkontakte">Vkontakte</option><option value="WhatsApp">WhatsApp</option><option value="WeChat">WeChat</option>
-            </select></div><span class="err" id="platformError"></span></div>
-          <div class="col-md-6"><label for="purpose" class="form-label">Purpose Of Use</label><div class="input-group"><span class="input-group-text"><i class="fa-solid fa-bullseye"></i></span><select id="purpose" class="form-select"><option>Networking</option><option>Education</option><option>Entertainment</option><option>News</option></select></div><span class="err" id="purposeError"></span></div>
-          <div class="col-md-6"><label for="avgUsage" class="form-label">Average Daily Usage (hours)</label><div class="input-group"><span class="input-group-text"><i class="fa-solid fa-clock"></i></span><input id="avgUsage" type="number" class="form-control" min="0" max="24" step="0.1" placeholder="e.g. 4.5" required></div><span class="err" id="avgUsageError"></span></div>
-          <div class="col-md-6"><label for="dailyUnlocks" class="form-label">Daily Unlocks</label><div class="input-group"><span class="input-group-text"><i class="fa-solid fa-lock-open"></i></span><input id="dailyUnlocks" type="number" class="form-control" min="0" step="1" placeholder="e.g. 80" required></div><span class="err" id="dailyUnlocksError"></span></div>
-          <div class="col-md-6"><label for="studyHours" class="form-label">Study Hours</label><div class="input-group"><span class="input-group-text"><i class="fa-solid fa-book"></i></span><input id="studyHours" type="number" class="form-control" min="0" max="24" step="0.1" placeholder="e.g. 3" required></div><span class="err" id="studyHoursError"></span></div>
-          <div class="col-md-6"><label for="activityHours" class="form-label">Physical Activity Hours</label><div class="input-group"><span class="input-group-text"><i class="fa-solid fa-dumbbell"></i></span><input id="activityHours" type="number" class="form-control" min="0" max="24" step="0.1" placeholder="e.g. 1" required></div><span class="err" id="activityHoursError"></span></div>
-          <div class="col-md-6"><label for="sleepHours" class="form-label">Sleep Hours Per Night</label><div class="input-group"><span class="input-group-text"><i class="fa-solid fa-bed"></i></span><input id="sleepHours" type="number" class="form-control" min="0" max="24" step="0.1" placeholder="e.g. 7" required></div><span class="err" id="sleepHoursError"></span></div>
-          <div class="col-md-6"><label for="stressLevel" class="form-label">Stress Level</label><div class="input-group"><span class="input-group-text"><i class="fa-solid fa-heart-pulse"></i></span><select id="stressLevel" class="form-select"><option>Low</option><option>Medium</option><option>High</option><option>Very High</option></select></div><span class="err" id="stressLevelError"></span></div>
+      <fieldset class="group">
+        <legend><span class="legend-index">02</span> Academic &amp; Digital Habits</legend>
+        <div class="grid grid-2">
+          <div class="field">
+            <label for="academic_level">Academic level</label>
+            <select id="academic_level" name="academic_level" required>
+              <option value="" disabled selected hidden>Select</option>
+              <option value="High School">High School</option>
+              <option value="Undergraduate">Undergraduate</option>
+              <option value="Graduate">Graduate</option>
+            </select>
+            <span class="error-msg" data-for="academic_level"></span>
+          </div>
+          <div class="field">
+            <label for="most_used_platform">Most-used platform</label>
+            <select id="most_used_platform" name="most_used_platform" required>
+              <option value="" disabled selected hidden>Select</option>
+              <option value="Facebook">Facebook</option>
+              <option value="Instagram">Instagram</option>
+              <option value="Snapchat">Snapchat</option>
+              <option value="Twitter">Twitter</option>
+              <option value="YouTube">YouTube</option>
+              <option value="TikTok">TikTok</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="LINE">LINE</option>
+              <option value="KakaoTalk">KakaoTalk</option>
+              <option value="VKontakte">VKontakte</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="WeChat">WeChat</option>
+            </select>
+            <span class="error-msg" data-for="most_used_platform"></span>
+          </div>
+          <div class="field">
+            <label for="purpose_of_use">Primary purpose</label>
+            <select id="purpose_of_use" name="purpose_of_use" required>
+              <option value="" disabled selected hidden>Select</option>
+              <option value="Networking">Networking</option>
+              <option value="Education">Education</option>
+              <option value="Entertainment">Entertainment</option>
+              <option value="News">News</option>
+            </select>
+            <span class="error-msg" data-for="purpose_of_use"></span>
+          </div>
+          <div class="field">
+            <label for="avg_daily_usage_hours">Avg. daily screen time</label>
+            <div class="unit-input">
+              <input type="number" id="avg_daily_usage_hours" name="avg_daily_usage_hours" min="0" max="24" step="0.1" required placeholder="0.0" />
+              <span class="unit">hrs</span>
+            </div>
+            <span class="error-msg" data-for="avg_daily_usage_hours"></span>
+          </div>
+          <div class="field">
+            <label for="daily_unlocks">Daily phone unlocks</label>
+            <input type="number" id="daily_unlocks" name="daily_unlocks" min="0" step="1" required placeholder="e.g. 60" />
+            <span class="error-msg" data-for="daily_unlocks"></span>
+          </div>
         </div>
-        <button id="predictBtn" type="submit" class="btn btn-grad btn-lg w-100 mt-4">
-          <span class="spinner spinner-border spinner-border-sm me-2" hidden></span><span id="btnText">Predict Mental Health Score</span>
+      </fieldset>
+
+      <fieldset class="group">
+        <legend><span class="legend-index">03</span> Lifestyle &amp; Stress</legend>
+        <div class="grid grid-3">
+          <div class="field">
+            <label for="study_hours">Study hours / day</label>
+            <div class="unit-input">
+              <input type="number" id="study_hours" name="study_hours" min="0" max="24" step="0.1" required placeholder="0.0" />
+              <span class="unit">hrs</span>
+            </div>
+            <span class="error-msg" data-for="study_hours"></span>
+          </div>
+          <div class="field">
+            <label for="physical_activity_hours">Physical activity / day</label>
+            <div class="unit-input">
+              <input type="number" id="physical_activity_hours" name="physical_activity_hours" min="0" max="24" step="0.1" required placeholder="0.0" />
+              <span class="unit">hrs</span>
+            </div>
+            <span class="error-msg" data-for="physical_activity_hours"></span>
+          </div>
+          <div class="field">
+            <label for="sleep_hours_per_night">Sleep / night</label>
+            <div class="unit-input">
+              <input type="number" id="sleep_hours_per_night" name="sleep_hours_per_night" min="0" max="24" step="0.1" required placeholder="0.0" />
+              <span class="unit">hrs</span>
+            </div>
+            <span class="error-msg" data-for="sleep_hours_per_night"></span>
+          </div>
+          <div class="field field-span">
+            <label for="stress_level">Perceived stress level</label>
+            <div class="segmented" id="stress_level_group" data-name="stress_level">
+              <button type="button" class="seg-btn" data-value="Low">Low</button>
+              <button type="button" class="seg-btn" data-value="Medium">Medium</button>
+              <button type="button" class="seg-btn" data-value="High">High</button>
+              <button type="button" class="seg-btn" data-value="Very High">Very High</button>
+            </div>
+            <input type="hidden" id="stress_level" name="stress_level" required />
+            <span class="error-msg" data-for="stress_level"></span>
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="form-footer">
+        <button type="submit" class="submit-btn" id="submit-btn">
+          <span class="btn-label">Read my signal</span>
+          <span class="btn-spinner" aria-hidden="true"></span>
         </button>
-      </form>
-    </div>
-
-    <div id="resultSection" class="glass panel result mx-auto mt-4" hidden aria-live="polite">
-      <h2>Prediction Result</h2>
-      <div class="ring">
-        <svg viewBox="0 0 120 120"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>
-          <circle cx="60" cy="60" r="54" class="ring-bg"/><circle id="ringFill" cx="60" cy="60" r="54" class="ring-fill"/></svg>
-        <div class="ring-text"><strong id="scoreValue">0</strong><span>AI Score</span></div>
       </div>
-      <p class="label">Predicted Mental Health Score</p>
-      <h3>AI Prediction Generated Successfully</h3>
-      <p class="sub">Your prediction was generated using the trained machine learning model.</p>
-      <div class="d-flex gap-3 justify-content-center flex-wrap">
-        <button id="againBtn" class="btn btn-grad" type="button">Predict Again</button>
-        <button id="clearBtn" class="btn btn-outline-light" type="button">Clear Form</button>
-      </div>
-    </div>
+    </form>
   </section>
 
-  <section id="about" class="container section">
-    <div class="mx-auto about">
-      <h2>About the Project</h2>
-      <p class="sub">MindGuard AI is a machine-learning based student mental health prediction system that analyzes lifestyle, academic habits, social media usage and stress-related factors to generate a predicted mental health score.</p>
-      <div class="row g-3 text-center">
-        <div class="col-md-4"><div class="glass tile h-100"><i class="fa-solid fa-leaf"></i><h3>Lifestyle Analysis</h3></div></div>
-        <div class="col-md-4"><div class="glass tile h-100"><i class="fa-solid fa-hashtag"></i><h3>Social Media Analysis</h3></div></div>
-        <div class="col-md-4"><div class="glass tile h-100"><i class="fa-solid fa-robot"></i><h3>AI-Based Prediction</h3></div></div>
+  <!-- RESULT PANEL -->
+  <aside class="panel result-panel" aria-live="polite">
+    <div class="result-inner" id="result-inner">
+
+      <div class="state state-idle" id="state-idle">
+        <svg class="gauge gauge-idle" viewBox="0 0 240 160" aria-hidden="true">
+          <path class="gauge-track" d="M 30 140 A 100 100 0 0 1 210 140" />
+          <g class="gauge-ticks"></g>
+        </svg>
+        <p class="idle-label">Your score will appear here</p>
+        <p class="idle-copy">Fill in the form and submit to generate a predicted mental health score from 0–10.</p>
       </div>
-      <h2 class="mt-5">How It Works</h2>
-      <div class="row g-3 steps text-center mt-1">
-        <div class="col-md-4 step"><b>01</b><span>Enter Student Data</span></div>
-        <div class="col-md-4 step"><b>02</b><span>AI Model Analyzes Data</span></div>
-        <div class="col-md-4 step"><b>03</b><span>Mental Health Score Generated</span></div>
+
+      <div class="state state-loading" id="state-loading" hidden>
+        <div class="pulse-ring"></div>
+        <p class="loading-label">Reading the signal…</p>
+        <p class="loading-copy">Running your habits through the model.</p>
       </div>
+
+      <div class="state state-result" id="state-result" hidden>
+        <svg class="gauge gauge-result" viewBox="0 0 240 160" aria-hidden="true">
+          <defs>
+            <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#D9534F"/>
+              <stop offset="45%" stop-color="#E3B341"/>
+              <stop offset="100%" stop-color="#4C9A78"/>
+            </linearGradient>
+          </defs>
+          <path class="gauge-track" d="M 30 140 A 100 100 0 0 1 210 140" />
+          <path class="gauge-fill" id="gauge-fill" d="M 30 140 A 100 100 0 0 1 210 140" />
+          <g class="gauge-ticks"></g>
+          <circle class="gauge-needle-hub" cx="120" cy="140" r="5" />
+        </svg>
+        <div class="score-readout">
+          <span class="score-number" id="score-number">0.0</span>
+          <span class="score-max">/10</span>
+        </div>
+        <p class="score-band" id="score-band">—</p>
+        <p class="score-context" id="score-context"></p>
+        <button type="button" class="reset-btn" id="reset-btn">Run another read</button>
+      </div>
+
+      <div class="state state-error" id="state-error" hidden>
+        <div class="error-icon" aria-hidden="true">!</div>
+        <p class="error-copy" id="error-copy"></p>
+        <button type="button" class="reset-btn" id="error-retry-btn">Try again</button>
+      </div>
+
     </div>
-  </section>
+  </aside>
+
 </main>
 
-<footer class="footer">
-  <p><strong>MindGuard AI — Student Mental Health Prediction System</strong></p>
-  <p>Powered by Machine Learning + FastAPI</p><p>Developed as an AI/ML Project</p>
+<footer class="site-footer">
+  <p>Built for informational purposes only — this is not a clinical assessment. If you're struggling, please talk to someone you trust.</p>
 </footer>
-<div id="toastBox" class="toast-box" aria-live="polite"></div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="script.js"></script>
+
+<script src="Script.js"></script>
 </body>
 </html>
