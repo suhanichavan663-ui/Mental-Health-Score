@@ -1,159 +1,305 @@
+(() => {
+  "use strict";
+
 // ===== Settings =====
-const API_URL = "https://mental-health-score-23ip.onrender.com";
+const API_BASE = "https://mental-health-score-23ip.onrender.com";
 // Ring fill = score / SCORE_MAX. Change SCORE_MAX to match your model's real target scale.
-const SCORE_MAX = 10;
+const form = document.getElementById("predict-form");
+  const submitBtn = document.getElementById("submit-btn");
+  const resetBtn = document.getElementById("reset-btn");
+  const errorRetryBtn = document.getElementById("error-retry-btn");
 
-// ===== Page elements =====
-const form = document.getElementById("predictForm");
-const btn = document.getElementById("predictBtn");
-const btnText = document.getElementById("btnText");
-const spinner = btn.querySelector(".spinner");
-const resultSection = document.getElementById("resultSection");
-const scoreValue = document.getElementById("scoreValue");
-const ringFill = document.getElementById("ringFill");
+  const stateIdle = document.getElementById("state-idle");
+  const stateLoading = document.getElementById("state-loading");
+  const stateResult = document.getElementById("state-result");
+  const stateError = document.getElementById("state-error");
 
-// ===== Field rules: id = HTML id, key = FastAPI field name (must match the Pydantic model) =====
-const fields = [
-  { id: "age",            key: "age",                     type: "int",   min: 10, max: 100, label: "Age" },
-  { id: "gender",         key: "gender",                  type: "text" },
-  { id: "country",        key: "country",                 type: "text",  label: "Country" },
-  { id: "academicLevel",  key: "academic_level",          type: "text" },
-  { id: "platform",       key: "most_used_platform",      type: "text" },
-  { id: "purpose",        key: "purpose_of_use",          type: "text" },
-  { id: "avgUsage",       key: "avg_daily_usage_hours",   type: "float", min: 0, max: 24, label: "Average daily usage" },
-  { id: "dailyUnlocks",   key: "daily_unlocks",           type: "int",   min: 0, label: "Daily unlocks" },
-  { id: "studyHours",     key: "study_hours",             type: "float", min: 0, max: 24, label: "Study hours" },
-  { id: "activityHours",  key: "physical_activity_hours", type: "float", min: 0, max: 24, label: "Physical activity" },
-  { id: "sleepHours",     key: "sleep_hours_per_night",   type: "float", min: 0, max: 24, label: "Sleep hours" },
-  { id: "stressLevel",    key: "stress_level",            type: "text" },
-];
+  const scoreNumberEl = document.getElementById("score-number");
+  const scoreBandEl = document.getElementById("score-band");
+  const scoreContextEl = document.getElementById("score-context");
+  const gaugeFill = document.getElementById("gauge-fill");
+  const errorLabelEl = document.getElementById("error-label");
+  const errorCopyEl = document.getElementById("error-copy");
 
-// ===== Toast notifications (reusable) =====
-function showToast(message, type = "info") {
-  const toast = document.createElement("div");
-  toast.className = "toast " + type;
-  toast.textContent = message;
-  document.getElementById("toastBox").appendChild(toast);
-  setTimeout(() => toast.remove(), 4500);
-}
+  const GAUGE_ARC_LENGTH = 314; // approx pi * r(100)
 
-// ===== Validation: shows a message under the field and highlights it =====
-function setError(id, message) {
-  const el = document.getElementById(id);
-  document.getElementById(id + "Error").textContent = message;
-  el.parentElement.classList.toggle("invalid", Boolean(message));
-  el.setAttribute("aria-invalid", message ? "true" : "false");
-}
-
-function validateField(f) {
-  const el = document.getElementById(f.id);
-  const value = el.value.trim();
-  if (value === "") { setError(f.id, "This field is required."); return false; }
-  if (f.type !== "text") {
-    const num = Number(value);
-    if (Number.isNaN(num)) { setError(f.id, "Enter a valid number."); return false; }
-    if (f.type === "int" && !Number.isInteger(num)) { setError(f.id, "Enter a whole number."); return false; }
-    if (f.min !== undefined && num < f.min) { setError(f.id, `${f.label} must be at least ${f.min}.`); return false; }
-    if (f.max !== undefined && num > f.max) { setError(f.id, `${f.label} must be at most ${f.max}.`); return false; }
-  }
-  setError(f.id, "");
-  return true;
-}
-
-// Validate every field; focus the first invalid one
-function validateForm() {
-  let firstBad = null;
-  fields.forEach(f => {
-    if (!validateField(f) && !firstBad) firstBad = f.id;
-  });
-  if (firstBad) document.getElementById(firstBad).focus();
-  return !firstBad;
-}
-
-// Clear an error as soon as the user edits that field
-fields.forEach(f => document.getElementById(f.id).addEventListener("input", () => validateField(f)));
-
-// ===== Build the JSON body (keys match the FastAPI studentData model) =====
-function collectData() {
-  const data = {};
-  fields.forEach(f => {
-    const value = document.getElementById(f.id).value.trim();
-    data[f.key] = f.type === "text" ? value : Number(value);
-  });
-  return data;
-}
-
-function setLoading(isLoading) {
-  btn.disabled = isLoading;
-  spinner.hidden = !isLoading;
-  btnText.textContent = isLoading ? "Analyzing Student Data..." : "Predict Mental Health Score";
-}
-
-// Count the number up and fill the ring
-function showResult(score) {
-  resultSection.hidden = false;
-  const circumference = 339.3;
-  ringFill.style.strokeDashoffset = circumference;
-  const start = performance.now();
-  function tick(now) {
-    const p = Math.min((now - start) / 1200, 1);
-    scoreValue.textContent = (score * p).toFixed(2);
-    if (p < 1) requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-  const ratio = Math.max(0, Math.min(score / SCORE_MAX, 1));
-  setTimeout(() => { ringFill.style.strokeDashoffset = circumference * (1 - ratio); }, 50);
-  resultSection.scrollIntoView({ behavior: "smooth", block: "center" });
-}
-
-// ===== Submit: call the FastAPI backend =====
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!validateForm()) { showToast("Please fix the highlighted fields.", "error"); return; }
-
-  setLoading(true);
-  try {
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(collectData()),
+  // ---------------------------------------------------------
+  // Draw tick marks on both gauges (0..10, every 2 units)
+  // ---------------------------------------------------------
+  function drawTicks() {
+    document.querySelectorAll(".gauge-ticks").forEach((g) => {
+      g.innerHTML = "";
+      const cx = 120, cy = 140, rOuter = 100, rInner = 90;
+      for (let i = 0; i <= 10; i += 2) {
+        const angle = Math.PI - (i / 10) * Math.PI; // 180deg -> 0deg
+        const x1 = cx + rOuter * Math.cos(angle);
+        const y1 = cy - rOuter * Math.sin(angle);
+        const x2 = cx + rInner * Math.cos(angle);
+        const y2 = cy - rInner * Math.sin(angle);
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x1.toFixed(1));
+        line.setAttribute("y1", y1.toFixed(1));
+        line.setAttribute("x2", x2.toFixed(1));
+        line.setAttribute("y2", y2.toFixed(1));
+        g.appendChild(line);
+      }
     });
-    if (!response.ok) {
-      // FastAPI sends 422 for invalid input and 500 for server errors
-      throw new Error(response.status === 422 ? "validation" : "server");
-    }
-    const result = await response.json();
-    showResult(result.predicted_mental_health_score);  // real value from the backend
-    showToast("Prediction generated successfully!", "success");
-  } catch (error) {
-    if (error instanceof TypeError) {   // fetch itself failed: server is not reachable
-      showToast("Unable to connect to the prediction server. Please make sure FastAPI is running at http://127.0.0.1:8000.", "error");
-    } else if (error.message === "validation") {
-      showToast("The server rejected some values. Please check your inputs.", "error");
-    } else {
-      showToast("Something went wrong. Please try again.", "error");
-    }
-  } finally {
-    setLoading(false);
   }
-});
+  drawTicks();
 
-// ===== Buttons and navigation =====
-document.getElementById("againBtn").addEventListener("click", () =>
-  document.getElementById("predict").scrollIntoView({ behavior: "smooth" }));   // values stay
+  // ---------------------------------------------------------
+  // Segmented control (stress_level) wiring
+  // ---------------------------------------------------------
+  const segGroup = document.getElementById("stress_level_group");
+  const stressHiddenInput = document.getElementById("stress_level");
+  segGroup.querySelectorAll(".seg-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      segGroup.querySelectorAll(".seg-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      stressHiddenInput.value = btn.dataset.value;
+      clearFieldError(stressHiddenInput);
+    });
+  });
 
-document.getElementById("clearBtn").addEventListener("click", () => {
-  form.reset();
-  fields.forEach(f => setError(f.id, ""));
-  resultSection.hidden = true;
-  document.getElementById("predict").scrollIntoView({ behavior: "smooth" });
-});
+  // ---------------------------------------------------------
+  // Field-level error helpers
+  // ---------------------------------------------------------
+  function fieldWrapper(input) {
+    return input.closest(".field");
+  }
 
-document.getElementById("startBtn").addEventListener("click", () =>
-  document.getElementById("predict").scrollIntoView({ behavior: "smooth" }));
+  function setFieldError(input, message) {
+    const wrap = fieldWrapper(input);
+    if (!wrap) return;
+    wrap.classList.add("field-error");
+    const msgEl = wrap.querySelector(".error-msg");
+    if (msgEl) msgEl.textContent = message;
+  }
 
-// Close the Bootstrap mobile menu after a link is clicked
-document.querySelectorAll("#navMenu .nav-link").forEach(a => a.addEventListener("click", () => {
-  const menu = bootstrap.Collapse.getInstance(document.getElementById("navMenu"));
-  if (menu) menu.hide();
-}));
+  function clearFieldError(input) {
+    const wrap = fieldWrapper(input);
+    if (!wrap) return;
+    wrap.classList.remove("field-error");
+    const msgEl = wrap.querySelector(".error-msg");
+    if (msgEl) msgEl.textContent = "";
+  }
+
+  function clearAllErrors() {
+    form.querySelectorAll(".field").forEach((f) => f.classList.remove("field-error"));
+    form.querySelectorAll(".error-msg").forEach((m) => (m.textContent = ""));
+  }
+
+  // ---------------------------------------------------------
+  // Client-side validation mirroring the StudentData model
+  // ---------------------------------------------------------
+  function validate(payload) {
+    const errors = [];
+
+    const numericChecks = [
+      ["age", 10, 100],
+      ["avg_daily_usage_hours", 0, 24],
+      ["daily_unlocks", 0, Infinity],
+      ["study_hours", 0, 24],
+      ["physical_activity_hours", 0, 24],
+      ["sleep_hours_per_night", 0, 24],
+    ];
+
+    numericChecks.forEach(([key, min, max]) => {
+      const input = document.getElementById(key);
+      const val = payload[key];
+      if (val === "" || val === null || Number.isNaN(val)) {
+        errors.push([input, "This field is required."]);
+      } else if (val < min || val > max) {
+        errors.push([input, `Must be between ${min} and ${max === Infinity ? "0+" : max}.`]);
+      }
+    });
+
+    ["gender", "country", "academic_level", "most_used_platform", "purpose_of_use"].forEach((key) => {
+      const input = document.getElementById(key);
+      if (!payload[key] || String(payload[key]).trim() === "") {
+        errors.push([input, "This field is required."]);
+      }
+    });
+
+    if (!payload.stress_level) {
+      errors.push([stressHiddenInput, "Pick a stress level."]);
+    }
+
+    return errors;
+  }
+
+  // ---------------------------------------------------------
+  // Gather form data into the exact StudentData shape
+  // ---------------------------------------------------------
+  function collectPayload() {
+    const fd = new FormData(form);
+    return {
+      age: fd.get("age") === "" ? NaN : parseInt(fd.get("age"), 10),
+      gender: fd.get("gender") || "",
+      country: (fd.get("country") || "").trim(),
+      academic_level: fd.get("academic_level") || "",
+      most_used_platform: fd.get("most_used_platform") || "",
+      purpose_of_use: fd.get("purpose_of_use") || "",
+      avg_daily_usage_hours: fd.get("avg_daily_usage_hours") === "" ? NaN : parseFloat(fd.get("avg_daily_usage_hours")),
+      daily_unlocks: fd.get("daily_unlocks") === "" ? NaN : parseInt(fd.get("daily_unlocks"), 10),
+      study_hours: fd.get("study_hours") === "" ? NaN : parseFloat(fd.get("study_hours")),
+      physical_activity_hours: fd.get("physical_activity_hours") === "" ? NaN : parseFloat(fd.get("physical_activity_hours")),
+      sleep_hours_per_night: fd.get("sleep_hours_per_night") === "" ? NaN : parseFloat(fd.get("sleep_hours_per_night")),
+      stress_level: fd.get("stress_level") || "",
+    };
+  }
+
+  // ---------------------------------------------------------
+  // UI state switching
+  // ---------------------------------------------------------
+  function showState(name) {
+    [stateIdle, stateLoading, stateResult, stateError].forEach((el) => (el.hidden = true));
+    ({ idle: stateIdle, loading: stateLoading, result: stateResult, error: stateError }[name]).hidden = false;
+  }
+
+  function setSubmitting(isSubmitting) {
+    submitBtn.disabled = isSubmitting;
+    submitBtn.classList.toggle("loading", isSubmitting);
+  }
+
+  function bandFor(score) {
+    if (score < 4) {
+      return {
+        label: "Signal: strained",
+        context: "Your responses suggest elevated strain right now. Small shifts in sleep or screen time can go a long way.",
+      };
+    }
+    if (score < 7) {
+      return {
+        label: "Signal: balanced",
+        context: "Your rhythm looks fairly steady, with some room to recover and reset.",
+      };
+    }
+    return {
+      label: "Signal: strong",
+      context: "Your habits point to a well-supported, resilient baseline. Keep it up.",
+    };
+  }
+
+  function renderResult(score) {
+    const clamped = Math.max(0, Math.min(10, score));
+    const { label, context } = bandFor(clamped);
+
+    scoreNumberEl.textContent = score.toFixed(2);
+    scoreBandEl.textContent = label;
+    scoreContextEl.textContent = context;
+
+    // reset then animate the arc fill on next frame
+    gaugeFill.style.transition = "none";
+    gaugeFill.style.strokeDashoffset = String(GAUGE_ARC_LENGTH);
+    requestAnimationFrame(() => {
+      gaugeFill.style.transition = "";
+      const offset = GAUGE_ARC_LENGTH * (1 - clamped / 10);
+      gaugeFill.style.strokeDashoffset = String(offset);
+    });
+
+    showState("result");
+  }
+
+  function renderError(label, copy) {
+    errorLabelEl.textContent = label;
+    errorCopyEl.textContent = copy;
+    showState("error");
+  }
+
+  // ---------------------------------------------------------
+  // Parse FastAPI / Pydantic 422 error responses into
+  // field-level messages where possible
+  // ---------------------------------------------------------
+  function applyServerValidationErrors(detail) {
+    if (!Array.isArray(detail)) return false;
+    let matched = false;
+    detail.forEach((err) => {
+      const field = Array.isArray(err.loc) ? err.loc[err.loc.length - 1] : null;
+      const input = field ? document.getElementById(field) : null;
+      const target = field === "stress_level" ? stressHiddenInput : input;
+      if (target) {
+        setFieldError(target, err.msg || "Invalid value.");
+        matched = true;
+      }
+    });
+    return matched;
+  }
+
+  // ---------------------------------------------------------
+  // Submit handler
+  // ---------------------------------------------------------
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearAllErrors();
+
+    const payload = collectPayload();
+    const clientErrors = validate(payload);
+
+    if (clientErrors.length > 0) {
+      clientErrors.forEach(([input, msg]) => input && setFieldError(input, msg));
+      clientErrors[0][0]?.focus?.();
+      return;
+    }
+
+    setSubmitting(true);
+    showState("loading");
+
+    try {
+      const res = await fetch(`${API_BASE}/predict`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.status === 422) {
+        const body = await res.json().catch(() => null);
+        const matched = body && applyServerValidationErrors(body.detail);
+        renderError(
+          "Check your inputs",
+          matched
+            ? "The API rejected a few fields — details are marked on the form."
+            : "The API rejected this submission. Please review your inputs and try again."
+        );
+        return;
+      }
+
+      if (!res.ok) {
+        let detailMsg = `The API responded with status ${res.status}.`;
+        const body = await res.json().catch(() => null);
+        if (body && typeof body.detail === "string") detailMsg = body.detail;
+        renderError("Prediction failed", detailMsg);
+        return;
+      }
+
+      const data = await res.json();
+      if (typeof data.predicted_mental_health_score !== "number") {
+        renderError("Unexpected response", "The API responded, but the score was missing or malformed.");
+        return;
+      }
+
+      renderResult(data.predicted_mental_health_score);
+    } catch (err) {
+      renderError(
+        "Can't reach the server",
+        `Couldn't connect to ${API_BASE}. Make sure the backend is running (uvicorn main:app --port 2200 --reload) and reachable from this page.`
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  });
+
+  // live-clear errors as the user edits
+  form.querySelectorAll("input, select").forEach((el) => {
+    el.addEventListener("input", () => clearFieldError(el));
+    el.addEventListener("change", () => clearFieldError(el));
+  });
+
+  resetBtn.addEventListener("click", () => {
+    showState("idle");
+  });
+
+  errorRetryBtn.addEventListener("click", () => {
+    showState("idle");
+  });
+})();
