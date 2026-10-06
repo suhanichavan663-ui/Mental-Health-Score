@@ -1,157 +1,305 @@
 (() => {
   "use strict";
 
-  // Backend address (no trailing slash). The /predict path is added below.
-  const API_BASE = "https://mental-health-score-23ip.onrender.com";
-  const ARC = 314;
+// ===== Settings =====
+const API_BASE = "https://mental-health-score-23ip.onrender.com";
+// Ring fill = score / SCORE_MAX. Change SCORE_MAX to match your model's real target scale.
+const form = document.getElementById("predict-form");
+  const submitBtn = document.getElementById("submit-btn");
+  const resetBtn = document.getElementById("reset-btn");
+  const errorRetryBtn = document.getElementById("error-retry-btn");
 
-  const $ = (id) => document.getElementById(id);
-  const form = $("predict-form");
-  const submitBtn = $("submit-btn");
-  const spinner = submitBtn.querySelector(".spinner-border");
-  const btnLabel = submitBtn.querySelector(".btn-label");
-  const states = { idle: $("state-idle"), loading: $("state-loading"), result: $("state-result"), error: $("state-error") };
-  const gaugeFill = $("gauge-fill");
-  const scoreNumber = $("score-number");
-  const stressInput = $("stress_level");
-  const stressGroup = $("stress_level_group");
+  const stateIdle = document.getElementById("state-idle");
+  const stateLoading = document.getElementById("state-loading");
+  const stateResult = document.getElementById("state-result");
+  const stateError = document.getElementById("state-error");
 
-  // [id, type, min, max, label]
-  const numeric = [
-    ["age", "int", 10, 100, "Age"],
-    ["avg_daily_usage_hours", "float", 0, 24, "Screen time"],
-    ["daily_unlocks", "int", 0, Infinity, "Unlocks"],
-    ["study_hours", "float", 0, 24, "Study hours"],
-    ["physical_activity_hours", "float", 0, 24, "Exercise hours"],
-    ["sleep_hours_per_night", "float", 0, 24, "Sleep hours"],
-  ];
-  const text = ["gender", "country", "academic_level", "most_used_platform", "purpose_of_use"];
+  const scoreNumberEl = document.getElementById("score-number");
+  const scoreBandEl = document.getElementById("score-band");
+  const scoreContextEl = document.getElementById("score-context");
+  const gaugeFill = document.getElementById("gauge-fill");
+  const errorLabelEl = document.getElementById("error-label");
+  const errorCopyEl = document.getElementById("error-copy");
 
-  function setError(el, msg) {
-    const field = el.closest(".field");
-    field.classList.toggle("field-error", Boolean(msg));
-    field.querySelector(".error-msg").textContent = msg || "";
+  const GAUGE_ARC_LENGTH = 314; // approx pi * r(100)
+
+  // ---------------------------------------------------------
+  // Draw tick marks on both gauges (0..10, every 2 units)
+  // ---------------------------------------------------------
+  function drawTicks() {
+    document.querySelectorAll(".gauge-ticks").forEach((g) => {
+      g.innerHTML = "";
+      const cx = 120, cy = 140, rOuter = 100, rInner = 90;
+      for (let i = 0; i <= 10; i += 2) {
+        const angle = Math.PI - (i / 10) * Math.PI; // 180deg -> 0deg
+        const x1 = cx + rOuter * Math.cos(angle);
+        const y1 = cy - rOuter * Math.sin(angle);
+        const x2 = cx + rInner * Math.cos(angle);
+        const y2 = cy - rInner * Math.sin(angle);
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x1.toFixed(1));
+        line.setAttribute("y1", y1.toFixed(1));
+        line.setAttribute("x2", x2.toFixed(1));
+        line.setAttribute("y2", y2.toFixed(1));
+        g.appendChild(line);
+      }
+    });
   }
+  drawTicks();
 
-  stressGroup.querySelectorAll(".btn").forEach((b) => b.addEventListener("click", () => {
-    stressGroup.querySelectorAll(".btn").forEach((x) => x.classList.remove("active"));
-    b.classList.add("active");
-    stressInput.value = b.dataset.value;
-    setError(stressInput, "");
-  }));
-
-  form.querySelectorAll("input, select").forEach((el) => {
-    ["input", "change"].forEach((ev) => el.addEventListener(ev, () => setError(el, "")));
+  // ---------------------------------------------------------
+  // Segmented control (stress_level) wiring
+  // ---------------------------------------------------------
+  const segGroup = document.getElementById("stress_level_group");
+  const stressHiddenInput = document.getElementById("stress_level");
+  segGroup.querySelectorAll(".seg-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      segGroup.querySelectorAll(".seg-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      stressHiddenInput.value = btn.dataset.value;
+      clearFieldError(stressHiddenInput);
+    });
   });
 
-  function collect() {
-    const data = {};
-    text.forEach((k) => (data[k] = $(k).value.trim()));
-    numeric.forEach(([k, type]) => {
-      const v = $(k).value.trim();
-      data[k] = v === "" ? NaN : type === "int" ? parseInt(v, 10) : parseFloat(v);
+  // ---------------------------------------------------------
+  // Field-level error helpers
+  // ---------------------------------------------------------
+  function fieldWrapper(input) {
+    return input.closest(".field");
+  }
+
+  function setFieldError(input, message) {
+    const wrap = fieldWrapper(input);
+    if (!wrap) return;
+    wrap.classList.add("field-error");
+    const msgEl = wrap.querySelector(".error-msg");
+    if (msgEl) msgEl.textContent = message;
+  }
+
+  function clearFieldError(input) {
+    const wrap = fieldWrapper(input);
+    if (!wrap) return;
+    wrap.classList.remove("field-error");
+    const msgEl = wrap.querySelector(".error-msg");
+    if (msgEl) msgEl.textContent = "";
+  }
+
+  function clearAllErrors() {
+    form.querySelectorAll(".field").forEach((f) => f.classList.remove("field-error"));
+    form.querySelectorAll(".error-msg").forEach((m) => (m.textContent = ""));
+  }
+
+  // ---------------------------------------------------------
+  // Client-side validation mirroring the StudentData model
+  // ---------------------------------------------------------
+  function validate(payload) {
+    const errors = [];
+
+    const numericChecks = [
+      ["age", 10, 100],
+      ["avg_daily_usage_hours", 0, 24],
+      ["daily_unlocks", 0, Infinity],
+      ["study_hours", 0, 24],
+      ["physical_activity_hours", 0, 24],
+      ["sleep_hours_per_night", 0, 24],
+    ];
+
+    numericChecks.forEach(([key, min, max]) => {
+      const input = document.getElementById(key);
+      const val = payload[key];
+      if (val === "" || val === null || Number.isNaN(val)) {
+        errors.push([input, "This field is required."]);
+      } else if (val < min || val > max) {
+        errors.push([input, `Must be between ${min} and ${max === Infinity ? "0+" : max}.`]);
+      }
     });
-    data.stress_level = stressInput.value;
-    return data;
-  }
 
-  function validate(data) {
-    const bad = [];
-    text.forEach((k) => { if (!data[k]) bad.push([$(k), "Please choose or enter a value."]); });
-    numeric.forEach(([k, type, min, max, label]) => {
-      const v = data[k];
-      if (Number.isNaN(v)) bad.push([$(k), "This field is required."]);
-      else if (type === "int" && !Number.isInteger(v)) bad.push([$(k), "Enter a whole number."]);
-      else if (v < min || v > max) bad.push([$(k), max === Infinity ? `${label} must be ${min} or more.` : `${label} must be between ${min} and ${max}.`]);
+    ["gender", "country", "academic_level", "most_used_platform", "purpose_of_use"].forEach((key) => {
+      const input = document.getElementById(key);
+      if (!payload[key] || String(payload[key]).trim() === "") {
+        errors.push([input, "This field is required."]);
+      }
     });
-    if (!data.stress_level) bad.push([stressInput, "Select a stress level."]);
-    return bad;
+
+    if (!payload.stress_level) {
+      errors.push([stressHiddenInput, "Pick a stress level."]);
+    }
+
+    return errors;
   }
 
-  function show(name) {
-    Object.entries(states).forEach(([k, el]) => (el.hidden = k !== name));
+  // ---------------------------------------------------------
+  // Gather form data into the exact StudentData shape
+  // ---------------------------------------------------------
+  function collectPayload() {
+    const fd = new FormData(form);
+    return {
+      age: fd.get("age") === "" ? NaN : parseInt(fd.get("age"), 10),
+      gender: fd.get("gender") || "",
+      country: (fd.get("country") || "").trim(),
+      academic_level: fd.get("academic_level") || "",
+      most_used_platform: fd.get("most_used_platform") || "",
+      purpose_of_use: fd.get("purpose_of_use") || "",
+      avg_daily_usage_hours: fd.get("avg_daily_usage_hours") === "" ? NaN : parseFloat(fd.get("avg_daily_usage_hours")),
+      daily_unlocks: fd.get("daily_unlocks") === "" ? NaN : parseInt(fd.get("daily_unlocks"), 10),
+      study_hours: fd.get("study_hours") === "" ? NaN : parseFloat(fd.get("study_hours")),
+      physical_activity_hours: fd.get("physical_activity_hours") === "" ? NaN : parseFloat(fd.get("physical_activity_hours")),
+      sleep_hours_per_night: fd.get("sleep_hours_per_night") === "" ? NaN : parseFloat(fd.get("sleep_hours_per_night")),
+      stress_level: fd.get("stress_level") || "",
+    };
   }
 
-  function setGauge(score) {
-    gaugeFill.style.strokeDashoffset = String(ARC * (1 - Math.max(0, Math.min(10, score)) / 10));
+  // ---------------------------------------------------------
+  // UI state switching
+  // ---------------------------------------------------------
+  function showState(name) {
+    [stateIdle, stateLoading, stateResult, stateError].forEach((el) => (el.hidden = true));
+    ({ idle: stateIdle, loading: stateLoading, result: stateResult, error: stateError }[name]).hidden = false;
   }
 
-  function resetGauge() {
-    gaugeFill.style.strokeDashoffset = String(ARC);
-    scoreNumber.textContent = "--";
+  function setSubmitting(isSubmitting) {
+    submitBtn.disabled = isSubmitting;
+    submitBtn.classList.toggle("loading", isSubmitting);
   }
 
-  function band(score) {
-    if (score < 4) return ["Under strain", "Your habits point to high strain. Small changes in sleep or screen time can help."];
-    if (score < 7) return ["Fairly balanced", "Your routine looks steady, with room to recover and improve."];
-    return ["Doing well", "Your habits point to a strong, resilient baseline. Keep it up."];
+  function bandFor(score) {
+    if (score < 4) {
+      return {
+        label: "Signal: strained",
+        context: "Your responses suggest elevated strain right now. Small shifts in sleep or screen time can go a long way.",
+      };
+    }
+    if (score < 7) {
+      return {
+        label: "Signal: balanced",
+        context: "Your rhythm looks fairly steady, with some room to recover and reset.",
+      };
+    }
+    return {
+      label: "Signal: strong",
+      context: "Your habits point to a well-supported, resilient baseline. Keep it up.",
+    };
   }
 
-  function showResult(score) {
-    const [title, copy] = band(score);
-    $("score-band").textContent = title;
-    $("score-context").textContent = copy;
-    scoreNumber.textContent = score.toFixed(2);
-    show("result");
-    requestAnimationFrame(() => setGauge(score));
+  function renderResult(score) {
+    const clamped = Math.max(0, Math.min(10, score));
+    const { label, context } = bandFor(clamped);
+
+    scoreNumberEl.textContent = score.toFixed(2);
+    scoreBandEl.textContent = label;
+    scoreContextEl.textContent = context;
+
+    // reset then animate the arc fill on next frame
+    gaugeFill.style.transition = "none";
+    gaugeFill.style.strokeDashoffset = String(GAUGE_ARC_LENGTH);
+    requestAnimationFrame(() => {
+      gaugeFill.style.transition = "";
+      const offset = GAUGE_ARC_LENGTH * (1 - clamped / 10);
+      gaugeFill.style.strokeDashoffset = String(offset);
+    });
+
+    showState("result");
   }
 
-  function showError(title, copy) {
-    $("error-label").textContent = title;
-    $("error-copy").textContent = copy;
-    resetGauge();
-    show("error");
+  function renderError(label, copy) {
+    errorLabelEl.textContent = label;
+    errorCopyEl.textContent = copy;
+    showState("error");
   }
 
-  function loading(on) {
-    submitBtn.disabled = on;
-    spinner.hidden = !on;
-    btnLabel.textContent = on ? "Analyzing..." : "Get my score";
+  // ---------------------------------------------------------
+  // Parse FastAPI / Pydantic 422 error responses into
+  // field-level messages where possible
+  // ---------------------------------------------------------
+  function applyServerValidationErrors(detail) {
+    if (!Array.isArray(detail)) return false;
+    let matched = false;
+    detail.forEach((err) => {
+      const field = Array.isArray(err.loc) ? err.loc[err.loc.length - 1] : null;
+      const input = field ? document.getElementById(field) : null;
+      const target = field === "stress_level" ? stressHiddenInput : input;
+      if (target) {
+        setFieldError(target, err.msg || "Invalid value.");
+        matched = true;
+      }
+    });
+    return matched;
   }
 
+  // ---------------------------------------------------------
+  // Submit handler
+  // ---------------------------------------------------------
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    form.querySelectorAll(".field").forEach((f) => f.classList.remove("field-error"));
-    const data = collect();
-    const bad = validate(data);
-    if (bad.length) {
-      bad.forEach(([el, msg]) => setError(el, msg));
-      bad[0][0].focus?.();
+    clearAllErrors();
+
+    const payload = collectPayload();
+    const clientErrors = validate(payload);
+
+    if (clientErrors.length > 0) {
+      clientErrors.forEach(([input, msg]) => input && setFieldError(input, msg));
+      clientErrors[0][0]?.focus?.();
       return;
     }
 
-    loading(true);
-    resetGauge();
-    show("loading");
+    setSubmitting(true);
+    showState("loading");
+
     try {
       const res = await fetch(`${API_BASE}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
+
       if (res.status === 422) {
-        showError("Check your answers", "The server could not accept one or more values. Review the form and try again.");
+        const body = await res.json().catch(() => null);
+        const matched = body && applyServerValidationErrors(body.detail);
+        renderError(
+          "Check your inputs",
+          matched
+            ? "The API rejected a few fields — details are marked on the form."
+            : "The API rejected this submission. Please review your inputs and try again."
+        );
         return;
       }
+
       if (!res.ok) {
-        showError("Prediction failed", `The server returned status ${res.status}. Please try again in a moment.`);
+        let detailMsg = `The API responded with status ${res.status}.`;
+        const body = await res.json().catch(() => null);
+        if (body && typeof body.detail === "string") detailMsg = body.detail;
+        renderError("Prediction failed", detailMsg);
         return;
       }
-      const body = await res.json();
-      const score = Number(body.predicted_mental_health_score);
-      if (Number.isNaN(score)) {
-        showError("Unexpected response", "The server replied, but the score was missing.");
+
+      const data = await res.json();
+      if (typeof data.predicted_mental_health_score !== "number") {
+        renderError("Unexpected response", "The API responded, but the score was missing or malformed.");
         return;
       }
-      showResult(score);
+
+      renderResult(data.predicted_mental_health_score);
     } catch (err) {
-      console.error(err);
-      showError("Cannot reach the server", "The backend may be waking up or blocked by CORS. Wait a minute and try again.");
+      renderError(
+        "Can't reach the server",
+        `Couldn't connect to ${API_BASE}. Make sure the backend is running (uvicorn main:app --port 2200 --reload) and reachable from this page.`
+      );
     } finally {
-      loading(false);
+      setSubmitting(false);
     }
   });
 
-  $("reset-btn").addEventListener("click", () => { resetGauge(); show("idle"); });
-  $("error-retry-btn").addEventListener("click", () => { resetGauge(); show("idle"); });
+  // live-clear errors as the user edits
+  form.querySelectorAll("input, select").forEach((el) => {
+    el.addEventListener("input", () => clearFieldError(el));
+    el.addEventListener("change", () => clearFieldError(el));
+  });
+
+  resetBtn.addEventListener("click", () => {
+    showState("idle");
+  });
+
+  errorRetryBtn.addEventListener("click", () => {
+    showState("idle");
+  });
 })();
