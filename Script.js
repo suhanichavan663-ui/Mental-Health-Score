@@ -1,5 +1,5 @@
 // ===== Settings =====
-const API_URL = "http://127.0.0.1:8000/predict";
+const API_URL = "https://mental-health-score-23ip.onrender.com";
 // Ring fill = score / SCORE_MAX. Change SCORE_MAX to match your model's real target scale.
 const SCORE_MAX = 10;
 
